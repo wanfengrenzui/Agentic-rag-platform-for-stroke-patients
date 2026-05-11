@@ -43,7 +43,7 @@ type FinalResponse = {
 
 const API = "";
 const TABLE_COLUMNS = [
-  { key: "paper_id", label: "论文" },
+  { key: "paper_title", label: "文献名称" },
   { key: "method", label: "方法" },
   { key: "sensor_position", label: "传感器位置" },
   { key: "metrics", label: "指标" },
@@ -117,7 +117,7 @@ export default function App() {
       const res = await fetch(`${API}/api/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_query: question, top_k: 6, language: "zh" })
+        body: JSON.stringify({ user_query: question, top_k: 8, language: "zh" })
       });
       if (!res.ok) throw new Error(await res.text());
       setAnswer(await res.json());
@@ -213,7 +213,7 @@ export default function App() {
                         <tr key={index}>
                           {TABLE_COLUMNS.map((column) => (
                             <td key={column.key} className={`cell-${column.key}`}>
-                              {formatCell(row[column.key], column.key)}
+                              {formatCell(row[column.key] ?? row.paper_id, column.key)}
                             </td>
                           ))}
                         </tr>
@@ -247,9 +247,11 @@ export default function App() {
 function formatCell(value: unknown, key: string) {
   if (Array.isArray(value)) {
     const joined = value.join(", ");
-    return key === "evidence_ids" ? shorten(joined, 92) : shorten(joined, 80);
+    return key === "evidence_ids" ? shorten(joined, 92) : shorten(joined, 92);
   }
-  return shorten(String(value ?? ""), key === "paper_id" ? 56 : 120);
+  const text = String(value ?? "");
+  if (key === "paper_title") return shorten(text, 110);
+  return shorten(text, 150);
 }
 
 function shorten(value: string, maxLength: number) {

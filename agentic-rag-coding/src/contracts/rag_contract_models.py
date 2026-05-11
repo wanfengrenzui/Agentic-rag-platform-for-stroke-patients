@@ -155,6 +155,7 @@ class SynthesizerInputContract(BaseModel):
 
 class SummaryRow(BaseModel):
     paper_id: str
+    paper_title: str | None = None
     method: str
     sensor_position: str | None = None
     metrics: list[str] = Field(default_factory=list)

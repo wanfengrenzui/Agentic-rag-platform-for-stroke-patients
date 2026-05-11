@@ -263,11 +263,11 @@ th {
 }
 
 th:nth-child(1) {
-  width: 18%;
+  width: 24%;
 }
 
 th:nth-child(2) {
-  width: 18%;
+  width: 16%;
 }
 
 th:nth-child(3) {
@@ -279,16 +279,23 @@ th:nth-child(4) {
 }
 
 th:nth-child(5) {
-  width: 24%;
+  width: 22%;
 }
 
 th:nth-child(6) {
-  width: 14%;
+  width: 12%;
 }
 
-.cell-paper_id,
+.cell-paper_title,
 .cell-evidence_ids {
   color: #3f4a42;
+}
+
+.cell-paper_title {
+  font-weight: 650;
+}
+
+.cell-evidence_ids {
   font-family: "Cascadia Mono", Consolas, monospace;
   font-size: 12px;
 }
