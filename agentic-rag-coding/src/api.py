@@ -234,6 +234,12 @@ def v2_generate_report() -> dict:
         "summary": "系统已完成数据接收与报告草案生成。当前报告聚焦数据构成、可分析指标和下一步解释路径。",
         "file_count": len(files),
         "modalities": [_v2_kind_label(kind) for kind in modality_counts],
+        "steps": [
+            {"name": "数据文件检查", "status": "completed", "detail": f"识别到 {len(files)} 个运动数据文件。"},
+            {"name": "模态类型归类", "status": "completed", "detail": f"包含{file_summary}。"},
+            {"name": "可分析指标规划", "status": "completed", "detail": "已规划动作质量、稳定性、对称性、速度和活动范围指标。"},
+            {"name": "报告草案生成", "status": "completed", "detail": "已生成初步分析报告。"},
+        ],
         "observations": observations,
         "recommendations": recommendations,
         "files": files,
