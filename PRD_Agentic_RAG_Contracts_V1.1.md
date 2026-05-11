@@ -1,70 +1,198 @@
-# PRD：Agentic RAG 输入输出契约（V1.1）
+# PRD: Agentic RAG Platform for Stroke Patients V1
 
 ## 1. 文档信息
-- 项目名称：Agentic RAG + 多Agent AI Coding 系统
-- 版本：V1.1
-- 日期：2026-05-10
-- 目标：定义端到端输入输出契约，保证可控、可调试、可评估、可追溯
 
-## 2. 适用范围
-本契约覆盖以下流程：
-User Request -> Planner Agent -> Retriever Tool -> Synthesizer Agent -> Critic Agent -> Final Response
+- 项目名称：Agentic RAG Platform for Stroke Patients
+- 版本：V1.0
+- 日期：2026-05-11
+- 当前状态：MVP 已实现，可本地运行，可推送到 GitHub，支持公开部署准备
+- 代码仓库：https://github.com/wanfengrenzui/Agentic-rag-platform-for-stroke-patients
 
-本版本关键决策：
-- 编排方式：LangChain 原生 tool-based
-- 检索方式：Hybrid Search（向量 0.6 + BM25 0.4，标准化后线性加权）
-- 分块方式：两层分块
-  - L1：完整 section 保存
-  - L2：用于向量化与检索的 chunk（500-800 tokens，overlap 80-120）
-- 引用策略：页码只能来自检索结果，不允许模型编造
-- 证据绑定：每条 claim 必须绑定 evidence_id
-- 错误处理：V1 规则优先
-- 性能策略：
-  - 15 秒内目标返回
-  - 15-20 秒继续执行
-  - 超过 20 秒返回用户确认是否继续
+## 2. V1 产品目标
 
-## 3. 全局约定
+V1 的目标是交付一个面向中风、步态分析、IMU/EMG 与康复医学论文的 Agentic RAG Web MVP。
 
-### 3.1 字段命名
-- 全部使用 snake_case
-- 所有 ID 字段使用字符串
+用户可以在网页中基于本地 PDF 文献库提问，系统完成：
 
-### 3.2 时间与数值
-- latency_ms 单位为毫秒
-- score 范围为 [0, 1]
+1. 解析 `Data/` 目录中的 PDF 原始数据。
+2. 建立本地 FAISS 向量索引。
+3. 使用 hybrid retrieval 检索相关证据片段。
+4. 调用 DeepSeek API 进行 Planner、Synthesizer、Critic 流程。
+5. 输出中文回答、论文对比表格、证据卡片、页码引用与置信度。
 
-### 3.3 枚举约束
-- language: zh | en
-- section_type: abstract | introduction | methods | results | discussion | conclusion
-- final_status: completed | completed_with_warning | need_user_confirmation | failed_no_evidence | failed_contract_validation
+V1 重点不是做完整生产 SaaS，而是做一个可演示、可迭代、可解释的研究型 Agentic RAG 原型。
 
-### 3.4 通用错误对象
+## 3. 用户与使用场景
+
+### 3.1 目标用户
+
+- 康复医学、HCI、医学工程方向研究者
+- 中风步态分析相关学生或科研助理
+- 想快速比较多篇 IMU/EMG 论文方法和结论的用户
+
+### 3.2 核心场景
+
+- 上传或放置一批 PDF 文献。
+- 重建索引。
+- 提问，例如：  
+  `请比较这些论文中的 IMU 步态事件检测方法，并给出关键证据。`
+- 获得：
+  - 4-6 句中文解释性回答
+  - 按文献名称展示的对比表
+  - evidence cards，包含标题、页码、章节、证据片段
+  - confidence 与 system_trace
+
+## 4. V1 已实现范围
+
+### 4.1 前端
+
+技术栈：React + Vite + TypeScript
+
+已实现页面能力：
+
+- 索引状态卡片
+  - PDF 数量
+  - chunk 数量
+  - FAISS 是否就绪
+- 文档列表
+- 上传 PDF
+- 重建索引
+- 查询输入框
+- 回答展示
+  - answer_text
+  - summary_table
+  - evidence_cards
+  - confidence
+  - latency_ms
+
+展示优化：
+
+- 表格第一列优先显示 `paper_title`，避免直接展示内部 `paper_id`
+- 长 evidence_id 缩略显示
+- 表格固定布局，适配浏览器 100% 缩放
+- 长文本自动换行，避免横向撑破页面
+
+### 4.2 后端
+
+技术栈：FastAPI + Pydantic
+
+已实现接口：
+
+| Method | Path | 说明 |
+|---|---|---|
+| GET | `/` | 后端状态入口 |
+| GET | `/api/health` | 健康检查 |
+| GET | `/api/documents` | 返回 `Data/` 中 PDF 列表 |
+| GET | `/api/index/status` | 返回索引状态 |
+| POST | `/api/index/rebuild` | 重建 FAISS 索引 |
+| POST | `/api/upload` | 上传 PDF 到 `Data/uploads/` |
+| POST | `/api/query` | 执行 Agentic RAG 查询 |
+
+### 4.3 数据与索引
+
+默认原始数据目录：
+
+```text
+Data/
+```
+
+上传目录：
+
+```text
+Data/uploads/
+```
+
+生成文件：
+
+```text
+agentic-rag-coding/storage/faiss.index
+agentic-rag-coding/storage/chunks.jsonl
+```
+
+生成文件不进入 Git。
+
+### 4.4 RAG
+
+V1 检索策略：
+
+- PDF 解析：PyMuPDF
+- Chunking：按页切分，保留 page_start/page_end
+- Embedding：`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
+- 向量索引：FAISS `IndexFlatIP`
+- Hybrid Search：
+  - vector weight: 0.6
+  - keyword/BM25-style weight: 0.4
+  - min-max normalization
+
+### 4.5 Agent 流程
+
+V1 流程：
+
+```text
+User Query
+-> Planner Agent
+-> Retriever
+-> Synthesizer Agent
+-> Critic Agent
+-> Final Response
+```
+
+LLM：
+
+- Provider: DeepSeek API
+- Base URL: `https://api.deepseek.com`
+- Default model: `deepseek-v4-flash`
+- 环境变量：`DEEPSEEK_API_KEY`
+
+如果没有配置 `DEEPSEEK_API_KEY`：
+
+- 后端仍可启动
+- 查询返回清晰错误提示
+- 不会崩溃
+
+## 5. 核心数据合同
+
+### 5.1 Query Request
+
+接口：
+
+```text
+POST /api/query
+```
+
+请求体：
+
 ```json
 {
-  "error_code": "E1002",
-  "error_message": "missing citation for at least one claim",
-  "stage": "synthesizer",
-  "retryable": true
+  "user_query": "请比较这些论文中的 IMU 步态事件检测方法，并给出关键证据。",
+  "paper_ids": [],
+  "top_k": 8,
+  "language": "zh"
 }
 ```
 
-## 4. 数据模型基础
+字段约束：
 
-### 4.1 Evidence 对象（统一）
+- `user_query`: 必填
+- `paper_ids`: 可选，为空表示检索全部文献
+- `top_k`: 默认 8，范围 3-12
+- `language`: `zh` 或 `en`，V1 默认 `zh`
+
+### 5.2 Evidence
+
 ```json
 {
-  "evidence_id": "ev_paper001_methods_p05_c02",
-  "paper_id": "paper_001",
-  "title": "Wearable IMU-Based Gait Event Detection in Stroke Patients",
-  "authors": ["Author A", "Author B"],
-  "year": 2023,
-  "doi": "10.xxxx/xxxxx",
+  "evidence_id": "ev_healthcare_10_01210_methods_p04_c0003",
+  "paper_id": "healthcare_10_01210",
+  "title": "IMU-Based Monitoring for Assistive Diagnosis and Management of IoHT: A Review",
+  "authors": ["Fan Bo", "Mustafa Yerebakan"],
+  "year": 2022,
+  "doi": "10.3390/healthcare10071210",
   "section": "methods",
-  "chunk_index": 2,
-  "page_start": 5,
-  "page_end": 5,
-  "text": "Initial contact was detected using the peak angular velocity ...",
+  "chunk_index": 3,
+  "page_start": 4,
+  "page_end": 4,
+  "text": "Retrieved evidence text...",
   "score_vector": 0.82,
   "score_bm25": 0.74,
   "score_final": 0.788,
@@ -72,406 +200,177 @@ User Request -> Planner Agent -> Retriever Tool -> Synthesizer Agent -> Critic A
 }
 ```
 
-### 4.2 Claim 对象（统一）
+规则：
+
+- `page_start/page_end` 必须来自 PDF 解析结果。
+- `score_final` 范围为 `[0, 1]`。
+- `title` 用作文献名称展示，不应在最终回答中退化为内部文件名或 `paper_id`。
+
+### 5.3 Summary Row
+
 ```json
 {
-  "claim_id": "claim_001",
-  "claim_text": "Paper 001 使用小腿角速度峰值检测 Initial Contact 和 Foot Off。",
-  "claim_type": "method_detail",
-  "evidence_ids": ["ev_paper001_methods_p05_c02"],
-  "risk_level": "low"
+  "paper_id": "healthcare_10_01210",
+  "paper_title": "IMU-Based Monitoring for Assistive Diagnosis and Management of IoHT: A Review",
+  "method": "使用机器学习处理 IMU 信号，用于疾病检测和管理。",
+  "sensor_position": "未说明",
+  "metrics": ["分类准确率", "疾病检测", "进展评估"],
+  "main_finding": "IMU 可作为远程健康监测的重要传感器，但强噪声环境下需要 ML 提高鲁棒性。",
+  "evidence_ids": ["ev_healthcare_10_01210_methods_p04_c0003"]
 }
 ```
 
-## 5. Contract 1：User Request Contract
+规则：
 
-### 5.1 输入结构
+- 前端优先展示 `paper_title`。
+- `paper_id` 仅用于内部追踪。
+- `evidence_ids` 必须可在 evidence_list 中找到。
+
+### 5.4 Final Response
+
 ```json
 {
-  "request_id": "req_20260510_001",
-  "user_query": "请比较这三篇论文中的 IMU 步态事件检测方法",
-  "task_template": "literature_comparison",
-  "uploaded_paper_ids": ["paper_001", "paper_002", "paper_003"],
-  "language": "zh",
-  "response_mode": "normal",
-  "max_latency_ms": 20000,
-  "allow_timeout_confirm": true,
-  "user_context": {
-    "role": "hci_researcher",
-    "output_preference": "table_first"
-  }
-}
-```
-
-### 5.2 字段约束
-- 必填：request_id, user_query, language
-- uploaded_paper_ids 最大长度：50
-- max_latency_ms 默认：20000
-
-## 6. Contract 2：Planner Output Contract
-
-### 6.1 输出结构
-```json
-{
-  "intent": "literature_comparison",
-  "task_complexity": "medium",
-  "planner_confidence": 0.86,
-  "rewritten_queries": [
-    {
-      "query": "IMU gait event detection initial contact foot off method",
-      "purpose": "retrieve_method_details",
-      "priority": 1
-    },
-    {
-      "query": "wearable IMU gait analysis evaluation metrics sensitivity precision",
-      "purpose": "retrieve_evaluation_metrics",
-      "priority": 2
-    }
-  ],
-  "retrieval_plan": {
-    "need_retrieval": true,
-    "top_k": 8,
-    "target_sections": ["methods", "results", "discussion"],
-    "paper_scope": ["paper_001", "paper_002", "paper_003"],
-    "allow_second_retrieval": true
-  },
-  "risk_flags": {
-    "medical_advice": false,
-    "requires_latest_guideline": false
-  }
-}
-```
-
-### 6.2 字段约束
-- rewritten_queries 数量：1-3
-- retrieval_plan.top_k 范围：3-12
-- target_sections 必须为 section_type 枚举子集
-
-## 7. Contract 3：Retriever Input Contract
-
-### 7.1 输入结构
-```json
-{
-  "request_id": "req_20260510_001",
-  "queries": [
-    "IMU gait event detection initial contact foot off method",
-    "wearable IMU gait analysis evaluation metrics sensitivity precision"
-  ],
-  "filters": {
-    "paper_ids": ["paper_001", "paper_002", "paper_003"],
-    "sections": ["methods", "results", "discussion"],
-    "year_range": null
-  },
-  "top_k": 8,
-  "hybrid_weights": {
-    "vector": 0.6,
-    "bm25": 0.4
-  },
-  "norm_method": "minmax"
-}
-```
-
-### 7.2 字段约束
-- hybrid_weights.vector 固定 0.6
-- hybrid_weights.bm25 固定 0.4
-- 权重和必须等于 1.0
-
-## 8. Contract 4：Retriever Output Contract
-
-### 8.1 输出结构
-```json
-{
-  "retrieval_status": "success",
-  "evidence_list": [
-    {
-      "evidence_id": "ev_paper001_methods_p05_c02",
-      "paper_id": "paper_001",
-      "title": "Wearable IMU-Based Gait Event Detection in Stroke Patients",
-      "authors": ["Author A", "Author B"],
-      "year": 2023,
-      "doi": "10.xxxx/xxxxx",
-      "section": "methods",
-      "chunk_index": 2,
-      "page_start": 5,
-      "page_end": 5,
-      "text": "Initial contact was detected using the peak angular velocity ...",
-      "score_vector": 0.82,
-      "score_bm25": 0.74,
-      "score_final": 0.788,
-      "source_type": "local_pdf"
-    }
-  ],
-  "retrieval_diagnostics": {
-    "num_candidates_vector": 30,
-    "num_candidates_bm25": 30,
-    "num_merged": 42,
-    "num_returned": 8,
-    "low_confidence": false,
-    "norm_method": "minmax",
-    "dedup_strategy": "semantic_hash"
-  }
-}
-```
-
-### 8.2 规则约束
-- page_start/page_end 必须来自检索管线解析结果
-- score_final 计算规则：
-  - s_vec_norm = normalize(score_vector)
-  - s_bm25_norm = normalize(score_bm25)
-  - score_final = 0.6 * s_vec_norm + 0.4 * s_bm25_norm
-
-## 9. Contract 5：Synthesizer Input Contract
-
-### 9.1 输入结构
-```json
-{
-  "user_query": "请比较这三篇论文中的 IMU 步态事件检测方法",
-  "intent": "literature_comparison",
-  "evidence_list": [
-    {
-      "evidence_id": "ev_paper001_methods_p05_c02",
-      "paper_id": "paper_001",
-      "section": "methods",
-      "page_start": 5,
-      "page_end": 5,
-      "text": "Initial contact was detected using the peak angular velocity ..."
-    }
-  ],
-  "output_format": {
-    "format": "comparison_table",
-    "language": "zh",
-    "require_citations": true
-  }
-}
-```
-
-### 9.2 规则约束
-- evidence_list 为空时不得进入生成，直接错误分支 E1001
-- require_citations 必须为 true
-
-## 10. Contract 6：Synthesizer Output Contract
-
-### 10.1 输出结构
-```json
-{
-  "answer_text": "三篇论文均采用 IMU 信号进行步态事件检测，但在传感器位置、特征选择和事件识别规则上存在差异。",
-  "summary_table": [
-    {
-      "paper_id": "paper_001",
-      "method": "基于小腿角速度峰值检测 Initial Contact 和 Foot Off",
-      "sensor_position": "shank",
-      "metrics": ["sensitivity", "precision"],
-      "main_finding": "该方法在规则步态中具有较高检测稳定性",
-      "evidence_ids": ["ev_paper001_methods_p05_c02"]
-    }
-  ],
-  "claims": [
-    {
-      "claim_id": "claim_001",
-      "claim_text": "Paper 001 使用小腿角速度峰值检测 Initial Contact 和 Foot Off。",
-      "claim_type": "method_detail",
-      "evidence_ids": ["ev_paper001_methods_p05_c02"],
-      "risk_level": "low"
-    }
-  ],
-  "citations": [
-    {
-      "claim_id": "claim_001",
-      "evidence_id": "ev_paper001_methods_p05_c02",
-      "display_text": "[Wearable IMU-Based Gait Event Detection in Stroke Patients, p.5]"
-    }
-  ],
-  "confidence": {
-    "label": "medium",
-    "reason": "方法证据较充分，但部分评价指标证据不足。"
-  },
-  "unsupported_claims": []
-}
-```
-
-### 10.2 规则约束
-- 每条 claim 必须绑定至少一个 evidence_id
-- citations 必须可反查到 evidence_list
-
-## 11. Contract 7：Critic Input Contract
-
-### 11.1 输入结构
-```json
-{
-  "user_query": "请比较这三篇论文中的 IMU 步态事件检测方法",
-  "answer_text": "三篇论文均采用 IMU 信号进行步态事件检测...",
-  "claims": [
-    {
-      "claim_id": "claim_001",
-      "claim_text": "Paper 001 使用小腿角速度峰值检测 Initial Contact 和 Foot Off。",
-      "evidence_ids": ["ev_paper001_methods_p05_c02"],
-      "risk_level": "low"
-    }
-  ],
-  "evidence_list": [
-    {
-      "evidence_id": "ev_paper001_methods_p05_c02",
-      "text": "Initial contact was detected using the peak angular velocity ...",
-      "page_start": 5,
-      "page_end": 5
-    }
-  ]
-}
-```
-
-### 11.2 检查范围
-- 证据绑定完整性
-- 证据支持度
-- 引用可回溯性
-- 风险标签完整性（医疗建议）
-
-## 12. Contract 8：Critic Output Contract
-
-### 12.1 输出结构
-```json
-{
-  "pass": false,
-  "overall_score": 0.72,
-  "fail_reasons": [
-    {
-      "type": "unsupported_claim",
-      "claim_id": "claim_003",
-      "description": "该结论声称适用于中风患者，但证据片段中未出现对应人群信息。",
-      "severity": "high"
-    },
-    {
-      "type": "missing_citation",
-      "claim_id": "claim_005",
-      "description": "该结论未绑定 evidence_id。",
-      "severity": "medium"
-    }
-  ],
-  "retry_hint": {
-    "need_retry": true,
-    "retry_type": "second_retrieval",
-    "suggested_queries": [
-      "stroke patients IMU gait event detection validation"
-    ],
-    "target_sections": ["methods", "results"]
-  },
-  "blocking": true
-}
-```
-
-### 12.2 fail_reasons.type 枚举
-- missing_citation
-- unsupported_claim
-- evidence_conflict
-- out_of_scope
-- medical_risk_unlabeled
-
-## 13. Contract 9：Timeout Negotiation Contract（新增）
-
-### 13.1 触发规则
-- latency_ms <= 15000：正常返回
-- 15000 < latency_ms <= 20000：继续执行，不中断
-- latency_ms > 20000：返回用户确认
-
-### 13.2 输出结构
-```json
-{
-  "request_id": "req_20260510_001",
-  "status": "need_user_confirmation",
-  "timeout_stage": "over_20s",
-  "partial_answer": "当前已完成方法对比，评价指标仍在检索中。",
-  "current_evidence_count": 6,
-  "estimated_extra_ms": 5000,
-  "continue_token": "cont_req_20260510_001_r2"
-}
-```
-
-### 13.3 用户确认继续请求
-```json
-{
-  "request_id": "req_20260510_001",
-  "continue_token": "cont_req_20260510_001_r2",
-  "user_decision": "continue"
-}
-```
-
-## 14. Contract 10：Final Response Contract
-
-### 14.1 输出结构
-```json
-{
-  "request_id": "req_20260510_001",
-  "status": "completed_with_warning",
+  "request_id": "req_1778466121269",
+  "status": "completed",
   "final_answer": {
-    "answer_text": "三篇论文均围绕 IMU 步态事件检测展开，但在传感器位置和事件识别策略上存在明显差异。",
-    "summary_table": [
-      {
-        "paper": "paper_001",
-        "method": "基于小腿角速度峰值检测 IC/FO",
-        "sensor_position": "shank",
-        "metrics": "sensitivity, precision",
-        "citation": "[Paper 001, p.5]"
-      }
-    ]
+    "answer_text": "这些文献都围绕 IMU 或 IMU+EMG 的步态评估展开，但侧重点不同...",
+    "summary_table": []
   },
   "evidence_cards": [
     {
-      "evidence_id": "ev_paper001_methods_p05_c02",
-      "title": "Wearable IMU-Based Gait Event Detection in Stroke Patients",
-      "page": "p.5",
+      "evidence_id": "ev_healthcare_10_01210_methods_p04_c0003",
+      "title": "IMU-Based Monitoring for Assistive Diagnosis and Management of IoHT: A Review",
+      "page": "p.4",
       "section": "methods",
-      "snippet": "Initial contact was detected using the peak angular velocity ..."
+      "snippet": "..."
     }
   ],
   "confidence": {
     "label": "medium",
     "score": 0.72,
-    "reason": "方法证据充分，部分评价指标证据不足。"
+    "reason": "部分论文只提供综述级证据，方法细节有限。"
   },
   "system_trace": {
-    "retrieval_rounds": 2,
+    "retrieval_rounds": 1,
     "critic_pass": true,
-    "latency_ms": 12800,
-    "timeout_stage": "none"
+    "latency_ms": 78387,
+    "timeout_stage": "over_15s"
   }
 }
 ```
 
-## 15. 错误码表（V1）
+## 6. 生成规则
 
-| 错误码 | 名称 | 触发阶段 | 含义 | 是否可重试 |
-|---|---|---|---|---|
-| E1001 | no_evidence | retriever | 未检索到可用证据 | 是 |
-| E1002 | citation_missing | synthesizer/critic | claim 无引用绑定 | 是 |
-| E1003 | claim_unsupported | critic | 结论缺少证据支撑 | 是 |
-| E1004 | timeout_confirmation_required | orchestrator | 超过 20 秒需用户确认 | 是 |
-| E1005 | invalid_contract_field | any | 字段缺失或类型错误 | 否 |
-| E1006 | evidence_conflict | critic | 证据间存在冲突 | 是 |
-| E1007 | medical_risk_unlabeled | critic | 医疗风险内容缺失风险提示 | 是 |
+### 6.1 Synthesizer
 
-## 16. 规则优先错误处理（V1）
-- 检索为空：触发 query 改写 + 二次检索
-- 置信度低：返回警告状态 completed_with_warning
-- 引用缺失：critic 阻断并要求重生
-- 用户质疑来源：返回 evidence_cards 明细
-- 医疗建议风险：自动追加风险提示
+V1 要求：
 
-## 17. 性能与停止条件
-- 目标响应：15 秒内
-- 最大尝试次数：3
-- 停止条件：
-  - critic pass
-  - 达到最大尝试次数
-  - 无相关证据
-  - 超过 20 秒且用户拒绝继续
+- 回答语言默认中文。
+- `answer_text` 应为 4-6 句，不能过短。
+- 回答中必须优先使用完整文献名称。
+- 不应使用 `Healthcare 2022`、`Sensors 2022`、`s41598` 或内部 `paper_id` 代替文献名。
+- 表格最多 5 行。
+- 每行必须绑定至少一个 `evidence_id`。
+- 不允许生成无证据支持的 claim。
 
-## 18. 验收标准（MVP）
-- 引用正确率：人工抽样 30 条，目标 >= 90%
-- claim-evidence 绑定率：100%
-- 字段契约校验通过率：100%
-- 15 秒内响应比例：>= 80%
+### 6.2 Critic
 
-## 19. 实施建议
-- 在每个 Agent 入口/出口加 JSON Schema 校验
-- 在 orchestrator 统一记录 system_trace
-- 将错误码写入日志与前端可见状态
-- 把本文件纳入 PRD 技术规格章节，作为联调基线
+V1 检查：
+
+- claim 是否绑定 evidence_id
+- evidence_id 是否存在
+- 基础引用可回溯性
+
+V1 未完全实现：
+
+- 深度医学风险分类
+- 多证据冲突检测
+- 自动二次检索闭环
+
+## 7. 错误与状态
+
+### 7.1 Final Status
+
+| 状态 | 说明 |
+|---|---|
+| `completed` | 正常完成 |
+| `completed_with_warning` | 达到最大尝试次数或置信度有限 |
+| `need_user_confirmation` | 超时需要用户确认 |
+| `failed_no_evidence` | 没有检索到证据 |
+| `failed_contract_validation` | 配置缺失或合同校验失败 |
+
+### 7.2 关键错误场景
+
+| 场景 | V1 行为 |
+|---|---|
+| 未配置 DeepSeek key | 返回 `failed_contract_validation`，提示设置 `DEEPSEEK_API_KEY` |
+| 索引为空 | 返回 `failed_no_evidence` 或提示重建索引 |
+| claim 引用不存在 | Critic 阻断 |
+| 上传非 PDF | 返回 400 |
+
+## 8. 验收结果
+
+V1 已通过以下验证：
+
+```powershell
+py -m compileall .
+py -m pytest -q
+npm.cmd run build
+py -m src.main rebuild
+```
+
+当前测试结果：
+
+- Python 编译通过
+- 前端 build 通过
+- 单元测试：5 passed
+- Data 目录索引构建成功
+  - PDF 数量：9
+  - Chunk 数量：196
+
+## 9. V1 非目标
+
+以下内容不纳入 V1：
+
+- 多用户账号系统
+- 云端生产部署自动化
+- 权限管理
+- 数据库持久化用户会话
+- PDF 原文页内跳转
+- 引用人工审核工作流
+- 医疗建议合规审查
+- Web Search 联合检索
+- 多模型路由
+
+## 10. V2 候选方向
+
+V1 之后可讨论的方向：
+
+1. 部署与公开访问
+   - Cloudflare Tunnel 临时公开
+   - VPS + Nginx + HTTPS 长期部署
+   - 子域名：`rag.asta.net.cn`
+
+2. 引用体验增强
+   - 点击 evidence card 打开 PDF
+   - 跳转到页码
+   - 高亮证据句
+
+3. 检索质量增强
+   - 更强 BM25
+   - reranker
+   - section-aware retrieval
+   - 去除 PRD 类非论文文档对论文问题的干扰
+
+4. Agent 能力增强
+   - 二次检索
+   - 失败自修正
+   - 查询意图分类
+   - 医学风险识别
+
+5. 产品化
+   - 项目空间
+   - 文献集合管理
+   - 导出 Word/Markdown/PDF 报告
+   - 人工反馈闭环
+
