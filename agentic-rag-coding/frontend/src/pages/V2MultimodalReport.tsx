@@ -1,5 +1,5 @@
-import { Activity, Database, FileSpreadsheet, Gauge, Loader2, Upload } from "lucide-react";
-import { ChangeEvent, useEffect, useState } from "react";
+import { Activity, Database, FileSpreadsheet, Gauge, Loader2, UploadCloud } from "lucide-react";
+import { ChangeEvent, DragEvent, useEffect, useState } from "react";
 import VersionNav from "../components/VersionNav";
 
 type V2File = {
@@ -10,10 +10,13 @@ type V2File = {
   source: string;
 };
 
+const ACCEPTED_EXTENSIONS = ".skeleton,.xlsx,.xls,.csv,.txt,.json,.mat";
+
 export default function V2MultimodalReport() {
   const [files, setFiles] = useState<V2File[]>([]);
   const [apiReady, setApiReady] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -33,25 +36,50 @@ export default function V2MultimodalReport() {
     }
   }
 
-  async function uploadFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  async function uploadFiles(fileList: FileList | File[]) {
+    const selectedFiles = Array.from(fileList);
+    if (selectedFiles.length === 0) return;
+
     setBusy(true);
     setMessage(null);
     const form = new FormData();
-    form.append("file", file);
+    selectedFiles.forEach((file) => form.append("files", file));
+
     try {
-      const res = await fetch("/api/v2/upload", { method: "POST", body: form });
+      const res = await fetch("/api/v2/uploads", { method: "POST", body: form });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       setFiles(data.files ?? []);
-      setMessage(`已上传：${data.filename}`);
+      setMessage(`已上传 ${data.count ?? selectedFiles.length} 个文件`);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "上传失败");
     } finally {
       setBusy(false);
-      event.target.value = "";
+      setDragActive(false);
     }
+  }
+
+  function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
+    if (event.target.files) {
+      uploadFiles(event.target.files);
+    }
+    event.target.value = "";
+  }
+
+  function handleDragOver(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    setDragActive(true);
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setDragActive(false);
+  }
+
+  function handleDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    uploadFiles(event.dataTransfer.files);
   }
 
   return (
@@ -66,21 +94,29 @@ export default function V2MultimodalReport() {
       </section>
 
       <section className="v2Layout">
-        <section className="v2Intro">
+        <section className={`v2DropZone ${dragActive ? "dragActive" : ""}`}>
           <div>
             <h2>多模态康复数据工作台</h2>
             <p>
-              上传患者运动数据后，系统会接收 skeleton、IMU 和 EMG 文件，围绕动作质量、稳定性、对称性、
-              速度和活动范围等指标组织分析，并结合 V1 的文献证据生成专业报告。
+              上传患者运动数据后，系统会接收 skeleton、IMU 和 EMG 文件，围绕动作质量、稳定性、
+              对称性、速度和活动范围等指标组织分析，并结合 V1 的文献证据生成专业报告。
             </p>
           </div>
-          <label className="primaryButton v2UploadButton">
-            {busy ? <Loader2 className="spin" size={18} /> : <Upload size={18} />}
-            上传运动数据
+
+          <label
+            className="dropUploadTarget"
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            {busy ? <Loader2 className="spin" size={26} /> : <UploadCloud size={28} />}
+            <span>{dragActive ? "松开即可上传" : "拖入多个数据文件"}</span>
+            <small>或点击选择文件，支持 skeleton、IMU、EMG、CSV、Excel、MAT</small>
             <input
               type="file"
-              accept=".skeleton,.xlsx,.xls,.csv,.txt,.json,.mat"
-              onChange={uploadFile}
+              accept={ACCEPTED_EXTENSIONS}
+              multiple
+              onChange={handleInputChange}
               disabled={busy}
             />
           </label>

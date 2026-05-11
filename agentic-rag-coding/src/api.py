@@ -177,6 +177,23 @@ def v2_demo_files() -> dict:
 
 @app.post("/api/v2/upload")
 def v2_upload_file(file: UploadFile = File(...)) -> dict:
+    saved_file = _save_v2_upload(file)
+    return {"filename": saved_file.name, "path": str(saved_file), "files": _v2_list_files()}
+
+
+@app.post("/api/v2/uploads")
+def v2_upload_files(files: list[UploadFile] = File(...)) -> dict:
+    if not files:
+        raise HTTPException(status_code=400, detail="At least one file is required.")
+    saved_files = [_save_v2_upload(file) for file in files]
+    return {
+        "filenames": [path.name for path in saved_files],
+        "count": len(saved_files),
+        "files": _v2_list_files(),
+    }
+
+
+def _save_v2_upload(file: UploadFile) -> Path:
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename is required.")
     suffix = Path(file.filename).suffix.lower()
@@ -187,7 +204,7 @@ def v2_upload_file(file: UploadFile = File(...)) -> dict:
     target = _safe_upload_path(V2_UPLOAD_DIR, file.filename)
     with target.open("wb") as handle:
         shutil.copyfileobj(file.file, handle)
-    return {"filename": target.name, "path": str(target), "files": _v2_list_files()}
+    return target
 
 
 def _safe_upload_path(upload_dir: Path, filename: str) -> Path:

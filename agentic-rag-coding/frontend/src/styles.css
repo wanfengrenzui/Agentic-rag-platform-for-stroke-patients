@@ -52,7 +52,9 @@ textarea {
 .stageItem h3,
 .stageItem p,
 .v2Intro h2,
-.v2Intro p {
+.v2Intro p,
+.v2DropZone h2,
+.v2DropZone p {
   margin: 0;
 }
 
@@ -526,6 +528,64 @@ th:nth-child(6) {
   display: none;
 }
 
+.v2DropZone {
+  align-items: stretch;
+  background: #ffffff;
+  border: 1px solid #d8ded2;
+  border-radius: 8px;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  padding: 22px;
+}
+
+.v2DropZone h2 {
+  font-size: 22px;
+}
+
+.v2DropZone p {
+  color: #596259;
+  line-height: 1.7;
+  margin-top: 10px;
+  max-width: 980px;
+}
+
+.dropUploadTarget {
+  align-items: center;
+  background: #f8faf6;
+  border: 1px dashed #90a194;
+  border-radius: 8px;
+  color: #244234;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  min-height: 132px;
+  padding: 18px;
+  text-align: center;
+}
+
+.v2DropZone.dragActive .dropUploadTarget,
+.dropUploadTarget:hover {
+  background: #eef3ea;
+  border-color: #244234;
+}
+
+.dropUploadTarget span {
+  font-size: 17px;
+  font-weight: 750;
+}
+
+.dropUploadTarget small {
+  color: #667064;
+  line-height: 1.45;
+}
+
+.dropUploadTarget input {
+  display: none;
+}
+
 .v2StageGrid {
   display: grid;
   gap: 16px;
@@ -626,7 +686,8 @@ th:nth-child(6) {
 
   .versionGrid,
   .v2StageGrid,
-  .v2Intro {
+  .v2Intro,
+  .v2DropZone {
     grid-template-columns: 1fr;
   }
 
