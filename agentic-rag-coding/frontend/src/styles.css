@@ -522,6 +522,10 @@ th:nth-child(6) {
   opacity: 0.7;
 }
 
+.v2UploadButton input {
+  display: none;
+}
+
 .v2StageGrid {
   display: grid;
   gap: 16px;
@@ -554,6 +558,16 @@ th:nth-child(6) {
   color: #667064;
   line-height: 1.6;
   margin: 0;
+}
+
+.statusLine {
+  background: #eef3ea;
+  border: 1px solid #dce4d7;
+  border-radius: 6px;
+  color: #244234;
+  line-height: 1.5;
+  margin: 10px 0 0;
+  padding: 8px 10px;
 }
 
 .demoFileList {

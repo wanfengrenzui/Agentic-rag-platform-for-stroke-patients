@@ -46,6 +46,8 @@ app.add_middleware(
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 V2_DEMO_DIR = PROJECT_ROOT / "测试"
+V2_UPLOAD_DIR = PROJECT_ROOT / "v2_data" / "cases" / "default"
+V2_ALLOWED_SUFFIXES = {".skeleton", ".xlsx", ".xls", ".csv", ".txt", ".json", ".mat"}
 
 
 @app.get("/")
@@ -137,35 +139,6 @@ def query(payload: QueryRequest) -> FinalResponseContract:
         uploaded_paper_ids=payload.paper_ids,
         language=Language(payload.language),
     )
-
-
-@app.get("/api/v2/health")
-def v2_health() -> dict:
-    return {
-        "ok": True,
-        "version": "v2",
-        "status": "shell_ready",
-        "demo_dir": str(V2_DEMO_DIR),
-        "demo_dir_exists": V2_DEMO_DIR.exists(),
-    }
-
-
-@app.get("/api/v2/demo/files")
-def v2_demo_files() -> dict:
-    files = []
-    if V2_DEMO_DIR.exists():
-        for path in sorted(V2_DEMO_DIR.iterdir(), key=lambda item: item.name.lower()):
-            if not path.is_file():
-                continue
-            files.append(
-                {
-                    "name": path.name,
-                    "path": str(path),
-                    "size_bytes": path.stat().st_size,
-                    "kind": _v2_file_kind(path),
-                }
-            )
-    return {"demo_dir": str(V2_DEMO_DIR), "files": files}
     workflow = AgenticRagWorkflow(retriever_tool=store, llm=llm, top_k_override=payload.top_k)
     result = workflow.run(request)
     if isinstance(result, FinalResponseContract):
@@ -185,6 +158,38 @@ def v2_demo_files() -> dict:
     )
 
 
+@app.get("/api/v2/health")
+def v2_health() -> dict:
+    return {
+        "ok": True,
+        "version": "v2",
+        "status": "shell_ready",
+        "demo_dir": str(V2_DEMO_DIR),
+        "demo_dir_exists": V2_DEMO_DIR.exists(),
+        "upload_dir": str(V2_UPLOAD_DIR),
+    }
+
+
+@app.get("/api/v2/demo/files")
+def v2_demo_files() -> dict:
+    return {"demo_dir": str(V2_DEMO_DIR), "upload_dir": str(V2_UPLOAD_DIR), "files": _v2_list_files()}
+
+
+@app.post("/api/v2/upload")
+def v2_upload_file(file: UploadFile = File(...)) -> dict:
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Filename is required.")
+    suffix = Path(file.filename).suffix.lower()
+    if suffix not in V2_ALLOWED_SUFFIXES:
+        supported = ", ".join(sorted(V2_ALLOWED_SUFFIXES))
+        raise HTTPException(status_code=400, detail=f"Unsupported V2 data file. Supported: {supported}")
+    V2_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    target = _safe_upload_path(V2_UPLOAD_DIR, file.filename)
+    with target.open("wb") as handle:
+        shutil.copyfileobj(file.file, handle)
+    return {"filename": target.name, "path": str(target), "files": _v2_list_files()}
+
+
 def _safe_upload_path(upload_dir: Path, filename: str) -> Path:
     raw_name = Path(filename).name
     target = upload_dir / raw_name
@@ -202,8 +207,35 @@ def _safe_upload_path(upload_dir: Path, filename: str) -> Path:
 
 def _v2_file_kind(path: Path) -> str:
     suffix = path.suffix.lower()
+    name = path.name.lower()
     if suffix == ".skeleton":
         return "skeleton"
+    if "emg" in name:
+        return "emg"
+    if "imu" in name:
+        return "imu"
     if suffix in {".xlsx", ".xls", ".csv"}:
-        return "imu_or_table"
+        return "sensor_table"
+    if suffix == ".mat":
+        return "matlab_data"
     return suffix.lstrip(".") or "unknown"
+
+
+def _v2_list_files() -> list[dict]:
+    files = []
+    for source, directory in (("demo", V2_DEMO_DIR), ("upload", V2_UPLOAD_DIR)):
+        if not directory.exists():
+            continue
+        for path in sorted(directory.iterdir(), key=lambda item: item.name.lower()):
+            if not path.is_file():
+                continue
+            files.append(
+                {
+                    "name": path.name,
+                    "path": str(path),
+                    "size_bytes": path.stat().st_size,
+                    "kind": _v2_file_kind(path),
+                    "source": source,
+                }
+            )
+    return files
