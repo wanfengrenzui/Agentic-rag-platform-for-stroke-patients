@@ -45,7 +45,7 @@ app.add_middleware(
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-V2_DEMO_DIR = PROJECT_ROOT / "测试"
+V2_DEMO_DIR = PROJECT_ROOT / "\u6d4b\u8bd5"
 V2_UPLOAD_DIR = PROJECT_ROOT / "v2_data" / "cases" / "default"
 V2_ALLOWED_SUFFIXES = {".skeleton", ".xlsx", ".xls", ".csv", ".txt", ".json", ".mat"}
 
@@ -193,6 +193,53 @@ def v2_upload_files(files: list[UploadFile] = File(...)) -> dict:
     }
 
 
+@app.post("/api/v2/report/generate")
+def v2_generate_report() -> dict:
+    files = _v2_list_files()
+    if not files:
+        raise HTTPException(status_code=400, detail="Please upload movement data files before generating a report.")
+
+    modality_counts: dict[str, int] = {}
+    total_bytes = 0
+    for file in files:
+        kind = str(file["kind"])
+        modality_counts[kind] = modality_counts.get(kind, 0) + 1
+        total_bytes += int(file["size_bytes"])
+
+    file_summary = "、".join(f"{_v2_kind_label(kind)} {count} 个" for kind, count in modality_counts.items())
+    has_skeleton = modality_counts.get("skeleton", 0) > 0
+    has_imu = modality_counts.get("imu", 0) > 0 or modality_counts.get("sensor_table", 0) > 0
+    has_emg = modality_counts.get("emg", 0) > 0
+
+    observations = [
+        f"本次报告接收 {len(files)} 个运动数据文件，合计 {_format_bytes(total_bytes)}，包含{file_summary}。",
+        "已建立患者案例级文件清单，可用于后续同步解析、质量检查和特征提取。",
+    ]
+    if has_skeleton:
+        observations.append("骨骼点数据可用于关节轨迹、活动范围、动作阶段和姿态稳定性分析。")
+    if has_imu:
+        observations.append("IMU/传感器表格数据可用于加速度、角速度、峰值变化和动作节律分析。")
+    if has_emg:
+        observations.append("EMG 数据可用于肌肉激活强度、激活时序和疲劳趋势分析。")
+
+    recommendations = [
+        "优先完成文件时间轴对齐，确保骨骼点、IMU 和 EMG 信号可以按动作阶段对应。",
+        "对每个训练动作输出动作质量、稳定性、对称性、速度和活动范围五类指标。",
+        "将异常指标与 V1 文献证据绑定，生成可追溯的康复训练解释。",
+    ]
+
+    return {
+        "status": "completed",
+        "title": "多模态康复运动数据初步分析报告",
+        "summary": "系统已完成数据接收与报告草案生成。当前报告聚焦数据构成、可分析指标和下一步解释路径。",
+        "file_count": len(files),
+        "modalities": [_v2_kind_label(kind) for kind in modality_counts],
+        "observations": observations,
+        "recommendations": recommendations,
+        "files": files,
+    }
+
+
 def _save_v2_upload(file: UploadFile) -> Path:
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename is required.")
@@ -236,6 +283,25 @@ def _v2_file_kind(path: Path) -> str:
     if suffix == ".mat":
         return "matlab_data"
     return suffix.lstrip(".") or "unknown"
+
+
+def _v2_kind_label(kind: str) -> str:
+    labels = {
+        "skeleton": "骨骼点",
+        "imu": "IMU",
+        "emg": "EMG",
+        "sensor_table": "传感器表格",
+        "matlab_data": "MATLAB 数据",
+    }
+    return labels.get(kind, kind)
+
+
+def _format_bytes(bytes_count: int) -> str:
+    if bytes_count < 1024:
+        return f"{bytes_count} B"
+    if bytes_count < 1024 * 1024:
+        return f"{bytes_count / 1024:.1f} KB"
+    return f"{bytes_count / 1024 / 1024:.1f} MB"
 
 
 def _v2_list_files() -> list[dict]:

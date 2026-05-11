@@ -1,4 +1,4 @@
-import { Activity, Database, FileSpreadsheet, Gauge, Loader2, UploadCloud } from "lucide-react";
+import { Activity, Database, FileCheck2, FileSpreadsheet, Gauge, Loader2, UploadCloud } from "lucide-react";
 import { ChangeEvent, DragEvent, useEffect, useState } from "react";
 import VersionNav from "../components/VersionNav";
 
@@ -10,12 +10,25 @@ type V2File = {
   source: string;
 };
 
+type V2Report = {
+  status: string;
+  title: string;
+  summary: string;
+  file_count: number;
+  modalities: string[];
+  observations: string[];
+  recommendations: string[];
+  files: V2File[];
+};
+
 const ACCEPTED_EXTENSIONS = ".skeleton,.xlsx,.xls,.csv,.txt,.json,.mat";
 
 export default function V2MultimodalReport() {
   const [files, setFiles] = useState<V2File[]>([]);
+  const [report, setReport] = useState<V2Report | null>(null);
   const [apiReady, setApiReady] = useState<boolean | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -40,8 +53,9 @@ export default function V2MultimodalReport() {
     const selectedFiles = Array.from(fileList);
     if (selectedFiles.length === 0) return;
 
-    setBusy(true);
+    setUploading(true);
     setMessage(null);
+    setReport(null);
     const form = new FormData();
     selectedFiles.forEach((file) => form.append("files", file));
 
@@ -54,8 +68,22 @@ export default function V2MultimodalReport() {
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "上传失败");
     } finally {
-      setBusy(false);
+      setUploading(false);
       setDragActive(false);
+    }
+  }
+
+  async function generateReport() {
+    setReporting(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/v2/report/generate", { method: "POST" });
+      if (!res.ok) throw new Error(await res.text());
+      setReport(await res.json());
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "报告生成失败");
+    } finally {
+      setReporting(false);
     }
   }
 
@@ -101,6 +129,13 @@ export default function V2MultimodalReport() {
               上传患者运动数据后，系统会接收 skeleton、IMU 和 EMG 文件，围绕动作质量、稳定性、
               对称性、速度和活动范围等指标组织分析，并结合 V1 的文献证据生成专业报告。
             </p>
+            <div className="reportActionRow">
+              <button className="primaryButton reportButton" type="button" onClick={generateReport} disabled={reporting || files.length === 0}>
+                {reporting ? <Loader2 className="spin" size={18} /> : <FileCheck2 size={18} />}
+                生成分析报告
+              </button>
+              <span>{files.length > 0 ? `已准备 ${files.length} 个数据文件` : "请先上传运动数据文件"}</span>
+            </div>
           </div>
 
           <label
@@ -109,7 +144,7 @@ export default function V2MultimodalReport() {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            {busy ? <Loader2 className="spin" size={26} /> : <UploadCloud size={28} />}
+            {uploading ? <Loader2 className="spin" size={26} /> : <UploadCloud size={28} />}
             <span>{dragActive ? "松开即可上传" : "拖入多个数据文件"}</span>
             <small>或点击选择文件，支持 skeleton、IMU、EMG、CSV、Excel、MAT</small>
             <input
@@ -117,7 +152,7 @@ export default function V2MultimodalReport() {
               accept={ACCEPTED_EXTENSIONS}
               multiple
               onChange={handleInputChange}
-              disabled={busy}
+              disabled={uploading}
             />
           </label>
         </section>
@@ -157,6 +192,33 @@ export default function V2MultimodalReport() {
             ))}
           </div>
         </section>
+
+        {report && (
+          <article className="reportPanel">
+            <div className="reportHeader">
+              <div>
+                <p className="eyebrow">Generated Report</p>
+                <h2>{report.title}</h2>
+              </div>
+              <span>{report.status}</span>
+            </div>
+            <p className="reportSummary">{report.summary}</p>
+            <div className="reportMeta">
+              <div><strong>{report.file_count}</strong><span>数据文件</span></div>
+              <div><strong>{report.modalities.join(" / ")}</strong><span>模态类型</span></div>
+            </div>
+            <div className="reportColumns">
+              <section>
+                <h3>核心观察</h3>
+                <ul>{report.observations.map((item) => <li key={item}>{item}</li>)}</ul>
+              </section>
+              <section>
+                <h3>建议路径</h3>
+                <ul>{report.recommendations.map((item) => <li key={item}>{item}</li>)}</ul>
+              </section>
+            </div>
+          </article>
+        )}
       </section>
     </main>
   );
