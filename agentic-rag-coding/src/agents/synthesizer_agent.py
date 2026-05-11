@@ -74,7 +74,8 @@ class SynthesizerAgent:
             "必须只根据 evidence_list 回答，每条 claim 必须绑定至少一个 evidence_id。"
             "回答要有解释性，不要过短：answer_text 用中文写 4-6 句，先给总体比较，再点出关键差异。"
             "必须优先使用 evidence_list 中的 paper_title 称呼文献，不要用 Healthcare 2022、Sensors 2022、s41598 或 paper_id 代替文献名称。"
-            "summary_table 最多 5 行；paper_title 字段必须填写完整文献名；method/main_finding 每格保持 1-2 个短句。"
+            "summary_table 建议 6-8 行；如果证据覆盖更多论文或方法，最多可扩展到 10 行。"
+            "paper_title 字段必须填写完整文献名；method/main_finding 每格保持 1-2 个短句。"
             "metrics 最多 4 个短词；sensor_position 不确定就写 未说明。"
             "不要把长 evidence_id 复制进正文，只放到 evidence_ids 字段。"
         )
