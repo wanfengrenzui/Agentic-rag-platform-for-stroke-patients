@@ -44,12 +44,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+V2_DEMO_DIR = PROJECT_ROOT / "测试"
+
 
 @app.get("/")
 def root() -> dict:
     return {
         "name": "Agentic RAG backend",
         "status": "running",
+        "versions": {
+            "v1": "literature_rag",
+            "v2": "multimodal_report",
+        },
         "frontend": "http://127.0.0.1:5173",
         "docs": "http://127.0.0.1:8000/docs",
         "health": "http://127.0.0.1:8000/api/health",
@@ -57,9 +64,11 @@ def root() -> dict:
 
 
 @app.get("/api/health")
+@app.get("/api/v1/health")
 def health() -> dict:
     return {
         "ok": True,
+        "version": "v1",
         "deepseek_configured": llm.configured,
         "deepseek_model": settings.deepseek_model,
         "data_dir": str(settings.data_dir),
@@ -67,16 +76,19 @@ def health() -> dict:
 
 
 @app.get("/api/documents")
+@app.get("/api/v1/documents")
 def documents() -> dict:
     return {"documents": store.list_documents()}
 
 
 @app.get("/api/index/status")
+@app.get("/api/v1/index/status")
 def index_status() -> dict:
     return store.status()
 
 
 @app.post("/api/index/rebuild")
+@app.post("/api/v1/index/rebuild")
 def rebuild_index() -> dict:
     try:
         return store.rebuild()
@@ -85,6 +97,7 @@ def rebuild_index() -> dict:
 
 
 @app.post("/api/upload")
+@app.post("/api/v1/upload")
 def upload_pdf(file: UploadFile = File(...)) -> dict:
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
@@ -96,6 +109,7 @@ def upload_pdf(file: UploadFile = File(...)) -> dict:
 
 
 @app.post("/api/query", response_model=FinalResponseContract)
+@app.post("/api/v1/query", response_model=FinalResponseContract)
 def query(payload: QueryRequest) -> FinalResponseContract:
     started = time.time()
     if not llm.configured:
@@ -123,6 +137,35 @@ def query(payload: QueryRequest) -> FinalResponseContract:
         uploaded_paper_ids=payload.paper_ids,
         language=Language(payload.language),
     )
+
+
+@app.get("/api/v2/health")
+def v2_health() -> dict:
+    return {
+        "ok": True,
+        "version": "v2",
+        "status": "shell_ready",
+        "demo_dir": str(V2_DEMO_DIR),
+        "demo_dir_exists": V2_DEMO_DIR.exists(),
+    }
+
+
+@app.get("/api/v2/demo/files")
+def v2_demo_files() -> dict:
+    files = []
+    if V2_DEMO_DIR.exists():
+        for path in sorted(V2_DEMO_DIR.iterdir(), key=lambda item: item.name.lower()):
+            if not path.is_file():
+                continue
+            files.append(
+                {
+                    "name": path.name,
+                    "path": str(path),
+                    "size_bytes": path.stat().st_size,
+                    "kind": _v2_file_kind(path),
+                }
+            )
+    return {"demo_dir": str(V2_DEMO_DIR), "files": files}
     workflow = AgenticRagWorkflow(retriever_tool=store, llm=llm, top_k_override=payload.top_k)
     result = workflow.run(request)
     if isinstance(result, FinalResponseContract):
@@ -155,3 +198,12 @@ def _safe_upload_path(upload_dir: Path, filename: str) -> Path:
         if not candidate.exists():
             return candidate
         counter += 1
+
+
+def _v2_file_kind(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix == ".skeleton":
+        return "skeleton"
+    if suffix in {".xlsx", ".xls", ".csv"}:
+        return "imu_or_table"
+    return suffix.lstrip(".") or "unknown"

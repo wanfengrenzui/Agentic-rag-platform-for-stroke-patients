@@ -31,11 +31,28 @@ textarea {
   padding: 18px 24px;
 }
 
+.eyebrow {
+  color: #2f6a54;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0;
+  margin: 0 0 4px;
+  text-transform: uppercase;
+}
+
 .topbar h1,
 .topbar p,
 .panel h2,
 .answer h2,
-.evidenceCard h3 {
+.evidenceCard h3,
+.versionHero h1,
+.versionHero p,
+.versionCard h2,
+.versionCard p,
+.stageItem h3,
+.stageItem p,
+.v2Intro h2,
+.v2Intro p {
   margin: 0;
 }
 
@@ -47,6 +64,129 @@ textarea {
 .topbar p {
   color: #596259;
   margin-top: 4px;
+}
+
+.topbarActions {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.versionNav {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.versionNav a {
+  align-items: center;
+  border: 1px solid #d8ded2;
+  border-radius: 6px;
+  color: #334139;
+  display: inline-flex;
+  font-size: 14px;
+  gap: 6px;
+  min-height: 36px;
+  padding: 8px 10px;
+  text-decoration: none;
+}
+
+.versionNav a.active {
+  background: #244234;
+  border-color: #244234;
+  color: #ffffff;
+}
+
+.versionShell {
+  min-height: 100vh;
+  padding: 32px;
+}
+
+.versionHero {
+  background: #ffffff;
+  border: 1px solid #d8ded2;
+  border-radius: 8px;
+  padding: 28px;
+}
+
+.versionHero h1 {
+  font-size: 32px;
+  line-height: 1.25;
+}
+
+.versionHero p:last-child {
+  color: #596259;
+  line-height: 1.7;
+  margin-top: 10px;
+  max-width: 760px;
+}
+
+.versionGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 20px;
+}
+
+.versionCard {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #d8ded2;
+  border-radius: 8px;
+  color: #17201a;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 180px;
+  padding: 22px;
+  text-decoration: none;
+}
+
+.versionCard:hover {
+  border-color: #2f6a54;
+}
+
+.versionCard span {
+  color: #2f6a54;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.versionCard h2 {
+  font-size: 22px;
+  margin-top: 6px;
+}
+
+.versionCard p {
+  color: #596259;
+  line-height: 1.65;
+  margin-top: 8px;
+}
+
+.versionIcon {
+  align-items: center;
+  background: #eef3ea;
+  border: 1px solid #dce4d7;
+  border-radius: 8px;
+  color: #244234;
+  display: inline-flex;
+  height: 52px;
+  justify-content: center;
+  width: 52px;
+}
+
+.versionNote {
+  align-items: center;
+  background: #eaf1f5;
+  border: 1px solid #d2e0e8;
+  border-radius: 8px;
+  color: #315266;
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 14px 16px;
 }
 
 .layout {
@@ -350,6 +490,95 @@ th:nth-child(6) {
   animation: spin 0.9s linear infinite;
 }
 
+.v2Layout {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.v2Intro {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #d8ded2;
+  border-radius: 8px;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  padding: 22px;
+}
+
+.v2Intro h2 {
+  font-size: 22px;
+}
+
+.v2Intro p {
+  color: #596259;
+  line-height: 1.7;
+  margin-top: 10px;
+  max-width: 980px;
+}
+
+.disabledButton {
+  opacity: 0.7;
+}
+
+.v2StageGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.stageItem {
+  background: #ffffff;
+  border: 1px solid #d8ded2;
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.stageItem svg {
+  color: #2f6a54;
+}
+
+.stageItem h3 {
+  font-size: 17px;
+  margin-top: 12px;
+}
+
+.stageItem p {
+  color: #596259;
+  line-height: 1.65;
+  margin-top: 8px;
+}
+
+.mutedLine {
+  color: #667064;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.demoFileList {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.demoFileItem {
+  border: 1px solid #dde4d7;
+  border-radius: 6px;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+}
+
+.demoFileItem span {
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.demoFileItem small {
+  color: #6b7567;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -364,5 +593,34 @@ th:nth-child(6) {
 
   .topbar {
     padding: 14px 16px;
+  }
+
+  .topbar,
+  .topbarActions,
+  .v2Intro {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .topbarActions {
+    margin-top: 12px;
+  }
+
+  .versionShell {
+    padding: 16px;
+  }
+
+  .versionGrid,
+  .v2StageGrid,
+  .v2Intro {
+    grid-template-columns: 1fr;
+  }
+
+  .versionCard {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .versionCard > svg {
+    display: none;
   }
 }

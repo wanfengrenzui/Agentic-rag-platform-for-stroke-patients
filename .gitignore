@@ -12,5 +12,7 @@ build/
 .env
 .env.*
 agentic-rag-coding/storage/
+agentic-rag-coding/测试/
+agentic-rag-coding/v2_data/cases/
 Data/uploads/
 agentic rag/
