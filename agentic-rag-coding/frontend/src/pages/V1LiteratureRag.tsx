@@ -59,6 +59,7 @@ export default function V1LiteratureRag() {
   const [answer, setAnswer] = useState<FinalResponse | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [allowWebSearch, setAllowWebSearch] = useState(false);
 
   const ready = Boolean(status?.index_exists && status?.chunk_count);
   const sortedDocs = useMemo(() => [...documents].sort((a, b) => a.filename.localeCompare(b.filename)), [documents]);
@@ -118,7 +119,7 @@ export default function V1LiteratureRag() {
       const res = await fetch(`${API}/api/v1/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_query: question, top_k: 8, language: "zh" })
+        body: JSON.stringify({ user_query: question, top_k: 8, language: "zh", allow_web_search: allowWebSearch })
       });
       if (!res.ok) throw new Error(await res.text());
       setAnswer(await res.json());
@@ -130,11 +131,11 @@ export default function V1LiteratureRag() {
   }
 
   return (
-    <main className="shell">
-      <section className="topbar">
+    <main className="shell systemShell">
+      <section className="topbar systemTopbar">
         <div>
           <p className="eyebrow">V1 · Literature RAG</p>
-          <h1>Agentic RAG</h1>
+          <h1>文献证据检索与问答管理</h1>
           <p>面向本地科研 PDF 的证据绑定问答工作台</p>
         </div>
         <div className="topbarActions">
@@ -145,39 +146,39 @@ export default function V1LiteratureRag() {
         </div>
       </section>
 
-      <section className="layout">
+      <section className="layout systemLayout">
         <aside className="sidebar">
-          <div className="panel">
-            <div className="panelTitle">
+          <div className="panel systemPanel">
+            <div className="panelTitle systemPanelTitle">
               <Database size={18} />
               <h2>索引状态</h2>
             </div>
-            <dl className="metrics">
+            <dl className="metrics systemMetrics">
               <div><dt>PDF</dt><dd>{status?.document_count ?? "-"}</dd></div>
               <div><dt>Chunks</dt><dd>{status?.chunk_count ?? "-"}</dd></div>
               <div><dt>FAISS</dt><dd>{ready ? "就绪" : "未就绪"}</dd></div>
             </dl>
-            <button onClick={rebuild} disabled={busy === "rebuild"} className="primaryButton">
+            <button onClick={rebuild} disabled={busy === "rebuild"} className="primaryButton systemButton">
               {busy === "rebuild" ? <Loader2 className="spin" size={18} /> : <RefreshCw size={18} />}
               重建索引
             </button>
-            <label className="uploadButton">
+            <label className="uploadButton systemButton">
               {busy === "upload" ? <Loader2 className="spin" size={18} /> : <Upload size={18} />}
               上传 PDF
               <input type="file" accept="application/pdf" onChange={upload} />
             </label>
           </div>
 
-          <div className="panel documentPanel">
-            <div className="panelTitle">
+          <div className="panel documentPanel systemPanel">
+            <div className="panelTitle systemPanelTitle">
               <FileText size={18} />
-              <h2>文档</h2>
+              <h2>文档资源</h2>
             </div>
             <div className="documentList">
               {sortedDocs.map((doc) => (
-                <div className="documentItem" key={doc.path} title={doc.filename}>
+                <div className="documentItem systemListItem" key={doc.path} title={doc.filename}>
                   <span>{doc.filename}</span>
-                  <small>{doc.uploaded ? "上传" : "Data"}</small>
+                  <small>{doc.uploaded ? "上传" : "Data"} · {formatBytes(doc.size_bytes)}</small>
                 </div>
               ))}
             </div>
@@ -185,9 +186,17 @@ export default function V1LiteratureRag() {
         </aside>
 
         <section className="workspace">
-          <form className="queryBox" onSubmit={ask}>
+          <form className="queryBox systemQueryBox" onSubmit={ask}>
             <textarea value={question} onChange={(event) => setQuestion(event.target.value)} />
-            <button disabled={busy === "query" || !question.trim()} className="primaryButton">
+            <label className="inlineToggle">
+              <input
+                type="checkbox"
+                checked={allowWebSearch}
+                onChange={(event) => setAllowWebSearch(event.target.checked)}
+              />
+              本地证据不足时追加 Web Search 证据
+            </label>
+            <button disabled={busy === "query" || !question.trim()} className="primaryButton systemButton">
               {busy === "query" ? <Loader2 className="spin" size={18} /> : <Search size={18} />}
               查询
             </button>
@@ -196,10 +205,10 @@ export default function V1LiteratureRag() {
           {error && <div className="errorBox">{error}</div>}
 
           {answer && (
-            <article className="answer">
+            <article className="answer systemPanel">
               <div className="answerHeader">
                 <div>
-                  <h2>回答</h2>
+                  <h2>回答结果</h2>
                   <p>{answer.status} · 置信度 {answer.confidence.label} · {answer.system_trace.latency_ms} ms</p>
                 </div>
               </div>
@@ -262,4 +271,11 @@ function formatCell(value: unknown, key: string) {
 function shorten(value: string, maxLength: number) {
   if (value.length <= maxLength) return value;
   return `${value.slice(0, Math.max(0, maxLength - 1))}…`;
+}
+
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes)) return "-";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }

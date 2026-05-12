@@ -1,0 +1,22 @@
+{
+  "generated_at": "2026-05-11T21:33:15",
+  "data_dir": "C:\\Users\\Asta\\Desktop\\ai coding\\Data",
+  "sample_size_requested": 20,
+  "sample_size_actual": 20,
+  "seed": 42,
+  "top_k": 5,
+  "data_pdf_count": 25,
+  "indexed_pdf_count_before_rebuild": 9,
+  "missing_indexed_pdf_count_before_rebuild": 16,
+  "rebuilt_index": true,
+  "metrics": {
+    "recall@5": 0.35,
+    "mrr": 0.2583,
+    "retrieval_sample_count": 20,
+    "citation_accuracy": 1.0,
+    "claim_support_rate": 1.0,
+    "claim_count": 4,
+    "citation_count": 4
+  },
+  "bad_case_count": 13
+}

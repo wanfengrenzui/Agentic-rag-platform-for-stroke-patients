@@ -22,6 +22,7 @@ from src.contracts.rag_contract_models import (
 from src.llm.deepseek_client import DeepSeekClient
 from src.orchestration.agentic_rag_workflow import AgenticRagWorkflow
 from src.rag.index_store import FaissRagStore
+from src.rag.web_search import WebAugmentedRetriever
 
 
 class QueryRequest(BaseModel):
@@ -29,6 +30,7 @@ class QueryRequest(BaseModel):
     paper_ids: list[str] = Field(default_factory=list)
     top_k: int = Field(default=8, ge=3, le=12)
     language: Literal["zh", "en"] = "zh"
+    allow_web_search: bool = False
 
 
 settings = get_settings()
@@ -38,7 +40,7 @@ llm = DeepSeekClient(settings)
 app = FastAPI(title="Agentic RAG", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -58,6 +60,7 @@ def root() -> dict:
         "versions": {
             "v1": "literature_rag",
             "v2": "multimodal_report",
+            "v3": "rag_llm_multimodal_report",
         },
         "frontend": "http://127.0.0.1:5173",
         "docs": "http://127.0.0.1:8000/docs",
@@ -114,24 +117,6 @@ def upload_pdf(file: UploadFile = File(...)) -> dict:
 @app.post("/api/v1/query", response_model=FinalResponseContract)
 def query(payload: QueryRequest) -> FinalResponseContract:
     started = time.time()
-    if not llm.configured:
-        return FinalResponseContract(
-            request_id=f"req_{int(started * 1000)}",
-            status=FinalStatus.FAILED_CONTRACT_VALIDATION,
-            final_answer=FinalAnswer(
-                answer_text="DeepSeek API 尚未配置。请设置 DEEPSEEK_API_KEY 后再发起真实生成。",
-                summary_table=[],
-            ),
-            evidence_cards=[],
-            confidence=Confidence(label="low", reason="missing_deepseek_api_key", score=0.0),
-            system_trace=SystemTrace(
-                retrieval_rounds=0,
-                critic_pass=False,
-                latency_ms=int((time.time() - started) * 1000),
-                timeout_stage="none",
-            ),
-        )
-
     request = UserRequestContract(
         request_id=f"req_{int(started * 1000)}",
         user_query=payload.user_query,
@@ -139,7 +124,8 @@ def query(payload: QueryRequest) -> FinalResponseContract:
         uploaded_paper_ids=payload.paper_ids,
         language=Language(payload.language),
     )
-    workflow = AgenticRagWorkflow(retriever_tool=store, llm=llm, top_k_override=payload.top_k)
+    retriever_tool = WebAugmentedRetriever(store) if payload.allow_web_search else store
+    workflow = AgenticRagWorkflow(retriever_tool=retriever_tool, llm=llm, top_k_override=payload.top_k)
     result = workflow.run(request)
     if isinstance(result, FinalResponseContract):
         return result
@@ -167,6 +153,18 @@ def v2_health() -> dict:
         "demo_dir": str(V2_DEMO_DIR),
         "demo_dir_exists": V2_DEMO_DIR.exists(),
         "upload_dir": str(V2_UPLOAD_DIR),
+    }
+
+
+@app.get("/api/v3/health")
+def v3_health() -> dict:
+    return {
+        "ok": True,
+        "version": "v3",
+        "status": "rag_llm_ready" if llm.configured else "rag_ready_llm_not_configured",
+        "deepseek_configured": llm.configured,
+        "local_rag_index": store.status().get("index_exists", False),
+        "web_search": "available_on_v1_query",
     }
 
 
@@ -328,3 +326,278 @@ def _v2_list_files() -> list[dict]:
                 }
             )
     return files
+
+
+@app.post("/api/v2/report/analyze")
+def v2_analyze_and_generate_report() -> dict:
+    """Analyze uploaded data and generate rehabilitation report."""
+    try:
+        from src.multimodal.data_models import (
+            AffectedSide,
+            ConditionType,
+            PatientCase,
+        )
+        from src.multimodal.feature_extractor import FeatureExtractorPipeline
+        from src.multimodal.report_generator import RehabReportGenerator
+        from src.multimodal.report_exporter import ReportExporter
+
+        # Get uploaded files
+        files = _v2_list_files()
+        skeleton_file = None
+        imu_file = None
+        emg_file = None
+
+        # If no files uploaded, try to use sample data
+        if not files:
+            sample_dir = PROJECT_ROOT / "sample_data"
+            if (sample_dir / "skeleton_sample.csv").exists():
+                skeleton_file = str(sample_dir / "skeleton_sample.csv")
+            if (sample_dir / "imu_sample.csv").exists():
+                imu_file = str(sample_dir / "imu_sample.csv")
+            if (sample_dir / "emg_sample.csv").exists():
+                emg_file = str(sample_dir / "emg_sample.csv")
+        else:
+            for f in files:
+                if f["kind"] == "skeleton":
+                    skeleton_file = f["path"]
+                elif f["kind"] == "imu":
+                    imu_file = f["path"]
+                elif f["kind"] == "emg":
+                    emg_file = f["path"]
+
+        # Extract features from available files
+        features, _ = FeatureExtractorPipeline.extract_all(
+            skeleton_path=skeleton_file,
+            imu_path=imu_file,
+            emg_path=emg_file,
+        )
+
+        # Create patient case
+        case = PatientCase(
+            case_id=f"case_frontend_{int(time.time() * 1000)}",
+            subject_code="S_Demo" if not files else "S_Custom",
+            age=55,
+            sex="male",
+            condition=ConditionType.POST_STROKE,
+            affected_side=AffectedSide.RIGHT,
+            time_since_onset_months=12,
+            assessment_date="2026-05-11",
+            notes="Web frontend demo case" if not files else f"Custom case with {len(files)} files",
+        )
+
+        features.case_id = case.case_id
+
+        # Generate report
+        generator = RehabReportGenerator()
+        report = generator.generate_report(case, features)
+
+        # Export to multiple formats
+        exporter = ReportExporter()
+        markdown_content = exporter.to_markdown(report)
+        json_content = exporter.to_json(report)
+        import json as json_module
+        json_payload = json_module.loads(json_content)
+
+        # Save outputs
+        output_dir = PROJECT_ROOT / "output"
+        output_dir.mkdir(exist_ok=True)
+
+        md_file = output_dir / f"{report.report_id}.md"
+        json_file = output_dir / f"{report.report_id}.json"
+
+        md_file.write_text(markdown_content, encoding="utf-8")
+        json_file.write_text(json_content, encoding="utf-8")
+
+        return {
+            "status": "success",
+            "report_id": report.report_id,
+            "markdown_content": markdown_content,
+            "json_content": json_payload,
+            "metadata": {
+                "case_id": case.case_id,
+                "subject_code": case.subject_code,
+                "confidence_level": report.confidence_level,
+                "quality_score": report.overall_quality_score,
+                "data_evidence_count": len(report.data_evidence_list),
+                "claims_count": len(report.claims),
+            },
+        }
+
+    except Exception as e:
+        import traceback
+        error_detail = f"Failed to generate report: {str(e)}"
+        print(f"Error: {error_detail}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=error_detail) from e
+
+
+@app.post("/api/v3/report/generate")
+def v3_generate_rag_llm_report() -> dict:
+    """Generate V3 report with local data, local literature RAG, and optional LLM interpretation."""
+    try:
+        return _generate_multimodal_report_response(
+            version="v3",
+            use_literature_rag=True,
+            use_llm=True,
+        )
+    except Exception as e:
+        import traceback
+        error_detail = f"Failed to generate V3 report: {str(e)}"
+        print(f"Error: {error_detail}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=error_detail) from e
+
+
+def _generate_multimodal_report_response(version: str, use_literature_rag: bool, use_llm: bool) -> dict:
+    from src.multimodal.data_models import (
+        AffectedSide,
+        ConditionType,
+        PatientCase,
+    )
+    from src.multimodal.feature_extractor import FeatureExtractorPipeline
+    from src.multimodal.report_generator import RehabReportGenerator
+    from src.multimodal.report_exporter import ReportExporter
+
+    files = _v2_list_files()
+    skeleton_file = None
+    imu_file = None
+    emg_file = None
+
+    if not files:
+        sample_dir = PROJECT_ROOT / "sample_data"
+        if (sample_dir / "skeleton_sample.csv").exists():
+            skeleton_file = str(sample_dir / "skeleton_sample.csv")
+        if (sample_dir / "imu_sample.csv").exists():
+            imu_file = str(sample_dir / "imu_sample.csv")
+        if (sample_dir / "emg_sample.csv").exists():
+            emg_file = str(sample_dir / "emg_sample.csv")
+    else:
+        for f in files:
+            if f["kind"] == "skeleton":
+                skeleton_file = f["path"]
+            elif f["kind"] == "imu":
+                imu_file = f["path"]
+            elif f["kind"] == "emg":
+                emg_file = f["path"]
+
+    features, _ = FeatureExtractorPipeline.extract_all(
+        skeleton_path=skeleton_file,
+        imu_path=imu_file,
+        emg_path=emg_file,
+    )
+
+    case = PatientCase(
+        case_id=f"case_{version}_{int(time.time() * 1000)}",
+        subject_code="S_Demo" if not files else "S_Custom",
+        age=55,
+        sex="male",
+        condition=ConditionType.POST_STROKE,
+        affected_side=AffectedSide.RIGHT,
+        time_since_onset_months=12,
+        assessment_date="2026-05-11",
+        notes=f"{version.upper()} case with {len(files)} files" if files else f"{version.upper()} demo case",
+    )
+    features.case_id = case.case_id
+
+    generator = RehabReportGenerator(
+        deepseek_client=llm if use_llm else None,
+        rag_store=store if use_literature_rag else None,
+    )
+    report = generator.generate_report(case, features)
+
+    exporter = ReportExporter()
+    markdown_content = exporter.to_markdown(report)
+    json_content = exporter.to_json(report)
+    import json as json_module
+    json_payload = json_module.loads(json_content)
+
+    output_dir = PROJECT_ROOT / "output"
+    output_dir.mkdir(exist_ok=True)
+    md_file = output_dir / f"{report.report_id}.md"
+    json_file = output_dir / f"{report.report_id}.json"
+    md_file.write_text(markdown_content, encoding="utf-8")
+    json_file.write_text(json_content, encoding="utf-8")
+
+    return {
+        "status": "success",
+        "version": version,
+        "report_id": report.report_id,
+        "markdown_content": markdown_content,
+        "json_content": json_payload,
+        "metadata": {
+            "case_id": case.case_id,
+            "subject_code": case.subject_code,
+            "confidence_level": report.confidence_level,
+            "quality_score": report.overall_quality_score,
+            "data_evidence_count": len(report.data_evidence_list),
+            "literature_evidence_count": len(report.literature_evidence_list),
+            "claims_count": len(report.claims),
+            "llm_enabled": bool(use_llm and llm.configured),
+            "rag_enabled": use_literature_rag,
+        },
+    }
+
+
+@app.get("/api/v2/report/{report_id}")
+def v2_get_report(report_id: str) -> dict:
+    """Get a previously generated report."""
+    try:
+        output_dir = PROJECT_ROOT / "output"
+        md_file = output_dir / f"{report_id}.md"
+        json_file = output_dir / f"{report_id}.json"
+
+        if not md_file.exists():
+            raise HTTPException(status_code=404, detail=f"Report {report_id} not found")
+
+        import json as json_module
+
+        markdown_content = md_file.read_text(encoding="utf-8")
+        json_content = json_module.loads(json_file.read_text(encoding="utf-8"))
+
+        return {
+            "status": "success",
+            "report_id": report_id,
+            "markdown_content": markdown_content,
+            "json_content": json_content,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve report: {str(e)}") from e
+
+
+@app.get("/api/v2/reports")
+def v2_list_reports() -> dict:
+    """List all generated reports."""
+    output_dir = PROJECT_ROOT / "output"
+    reports = []
+
+    if output_dir.exists():
+        for md_file in sorted(output_dir.glob("*.md"), reverse=True):
+            report_id = md_file.stem
+            json_file = output_dir / f"{report_id}.json"
+
+            if json_file.exists():
+                try:
+                    import json as json_module
+
+                    json_data = json_module.loads(json_file.read_text(encoding="utf-8"))
+                    reports.append(
+                        {
+                            "report_id": report_id,
+                            "generated_at": json_data.get("generated_at"),
+                            "case_id": json_data.get("case_id"),
+                            "confidence_level": json_data.get("confidence_level"),
+                            "quality_score": json_data.get("overall_quality_score"),
+                            "size_bytes": md_file.stat().st_size,
+                        }
+                    )
+                except Exception:
+                    pass
+
+    return {
+        "status": "success",
+        "count": len(reports),
+        "reports": reports,
+    }

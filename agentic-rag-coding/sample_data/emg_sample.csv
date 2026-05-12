@@ -1,0 +1,13 @@
+timestamp,muscle_name,emg_raw
+0,tibialis_anterior_left,0.002
+10,tibialis_anterior_left,0.004
+20,tibialis_anterior_left,0.006
+30,tibialis_anterior_left,0.008
+40,tibialis_anterior_left,0.005
+50,tibialis_anterior_left,0.003
+100,tibialis_anterior_right,0.001
+110,tibialis_anterior_right,0.002
+120,tibialis_anterior_right,0.003
+130,tibialis_anterior_right,0.002
+140,tibialis_anterior_right,0.001
+150,tibialis_anterior_right,0.0015

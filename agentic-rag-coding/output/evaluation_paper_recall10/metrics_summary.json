@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-05-11T21:42:23",
+  "data_dir": "C:\\Users\\Asta\\Desktop\\ai coding\\Data",
+  "sample_size_requested": 20,
+  "sample_size_actual": 20,
+  "sample_unit": "paper",
+  "seed": 42,
+  "top_k": 10,
+  "data_pdf_count": 25,
+  "indexed_pdf_count_before_rebuild": 25,
+  "missing_indexed_pdf_count_before_rebuild": 0,
+  "rebuilt_index": false,
+  "metrics": {
+    "recall@10": 0.95,
+    "mrr": 0.8083,
+    "precision@10": 0.425,
+    "ndcg@10": 0.8122,
+    "retrieval_sample_count": 20,
+    "citation_accuracy": 1.0,
+    "claim_support_rate": 1.0,
+    "claim_count": 4,
+    "citation_count": 4
+  },
+  "bad_case_count": 1
+}

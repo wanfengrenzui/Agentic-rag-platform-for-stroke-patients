@@ -1,0 +1,116 @@
+{
+  "report_id": "report_case_v3_1778492674417_20260511_174434",
+  "case_id": "case_v3_1778492674417",
+  "generated_at": "2026-05-11T17:44:34.417485",
+  "basic_info": {
+    "subject_code": "S_Custom",
+    "age": 55,
+    "sex": "male",
+    "condition": "post_stroke",
+    "affected_side": "right",
+    "time_since_onset_months": 12,
+    "assessment_date": "2026-05-11",
+    "notes": "V3 case with 10 files"
+  },
+  "data_quality_summary": "### 数据质量说明\n**数据质量发现：**\n- [HIGH] Missing columns: ['timestamp', 'acc_x', 'acc_y', 'acc_z']\n\n整体数据质量评分：**100.0%** (含置信度)\n",
+  "gait_spatiotemporal_analysis": "### 步态时空参数分析\n\n**时间参数：**\n- 步频: 71.6 步/分钟\n- 总步数: 13 步\n\n**空间参数：**\n- 髋关节活动度: 0.150\n- 膝关节活动度: 0.200\n- 加速度不对称: 数据不足\n\n**步态对称性评估：**\n步态对称性相对良好。\n",
+  "skeleton_joint_analysis": "### 骨骼关键点与关节活动度分析\n\n**步态时间参数：** 步行持续时间 10.9 秒，估计步数 13 步，步频 71.6 步/分钟。\n\n**左右对称性：** 左右步态对称指数为 0.91，对称性相对良好。\n\n**关节活动度(ROM)：**\n- 髋关节: 0.15 (相对单位)\n- 膝关节: 0.2 (相对单位)\n- 踝关节: 0.1 (相对单位)\n\n**躯干晃动代理指标：** 0.129\n\n",
+  "imu_signal_analysis": "### IMU 传感器信号分析\n\n**加速度特征：**\n- 平均加速度幅值: 数据不足\n- 峰值加速度: 数据不足\n\n**角速度特征：**\n- 峰值角速度: 数据不足\n\n**步态事件检测：** 数据不足\n\n**左右不对称指数：** 数据不足\n\n**主导频率：** 数据不足\n**信号质量评分：** 数据不足\n",
+  "emg_muscle_analysis": "",
+  "preliminary_rehabilitation_significance": "### 初步康复意义\n\n该受试者患病时间 12 个月，步频偏低，步态可能存在能量消耗增加。\n\n**初步评估：** 患者步行可能存在代偿策略，建议重点关注患侧下肢的运动控制与肌力恢复。\n\n建议由康复医学专业人员结合临床检查、肌力测试和功能量表进行综合评估。\n",
+  "risk_and_limitation": "### 风险与局限\n\n**本分析的局限：**\n1. 本报告基于离线数据自动生成，仅用于辅助分析，不构成医学诊断。\n2. 特征提取采用简化算法，可能不适用于所有临床场景。\n3. 缺乏临床体格检查、肌力测试和标准量表评分的支持。\n4. 单次评估无法反映长期康复趋势，建议定期随访。\n\n**数据质量风险：**\n- Missing columns: ['timestamp', 'acc_x', 'acc_y', 'acc_z']\n",
+  "follow_up_recommendations": "### 后续建议\n\n**建议的后续步骤：**\n1. 由康复医学或神经科医生进行全面临床评估。\n2. 使用标准功能量表（如 Fugl-Meyer Assessment、NIHSS 等）量化步态和运动功能。\n3. 根据临床需要补充其他评估（如虚拟现实任务、力板平衡测试等）。\n4. 制定个体化康复训练计划，关注患侧下肢的力量和控制训练。\n5. 定期复评（建议每 4-8 周一次），追踪功能恢复趋势。\n\n**数据采集优化建议：**\n- 改进传感器放置和校准，确保数据采样率稳定。\n- 在标准化步行条件下重复采集，以提高重测信度。\n",
+  "data_evidence_list": [
+    {
+      "data_evidence_id": "data_case_v3_1778492674417_skeleton_symmetry_001",
+      "feature_name": "left_right_step_symmetry",
+      "value": 0.9142602093944607,
+      "unit": "ratio",
+      "interpretation": "左右步态对称指数为 0.91，对称性相对良好。"
+    },
+    {
+      "data_evidence_id": "data_case_v3_1778492674417_skeleton_cadence_001",
+      "feature_name": "cadence_steps_per_min",
+      "value": 71.56034863100925,
+      "unit": "步/分钟",
+      "interpretation": "患者步频为 71.6 步/分钟。"
+    }
+  ],
+  "literature_evidence_list": [
+    {
+      "evidence_id": "ev_healthcare_10_01210_introduction_p002_c0003",
+      "paper_title": "IMU-Based Monitoring for Assistive Diagnosis and Management of IoHT: A Review",
+      "page_start": 2,
+      "section": "introduction",
+      "score_final": 0.7833333333333333
+    },
+    {
+      "evidence_id": "ev_characterization_of_lower_limb_activity_during_gait_using_wearable_multi_channel_methods_p001_c0000",
+      "paper_title": "Characterization of lower limb activity during gait using wearable, multi-channel surface EMG and IMU",
+      "page_start": 1,
+      "section": "methods",
+      "score_final": 0.68906572442694
+    },
+    {
+      "evidence_id": "ev_healthcare_10_01210_methods_p006_c0007",
+      "paper_title": "IMU-Based Monitoring for Assistive Diagnosis and Management of IoHT: A Review",
+      "page_start": 6,
+      "section": "methods",
+      "score_final": 0.6888967696644616
+    },
+    {
+      "evidence_id": "ev_characterization_of_lower_limb_activity_during_gait_using_wearable_multi_channel_discussion_p002_c0002",
+      "paper_title": "Characterization of lower limb activity during gait using wearable, multi-channel surface EMG and IMU",
+      "page_start": 2,
+      "section": "discussion",
+      "score_final": 0.6479361217577493
+    },
+    {
+      "evidence_id": "ev_872241d1f9b1ba019c63ac1eeb86a51002a1_discussion_p009_c0009",
+      "paper_title": "Analysis of the Temporo-Spatial and Electromyographic Characteristics of Gait in a Hemiplegic Patient: A Single-Subject",
+      "page_start": 9,
+      "section": "discussion",
+      "score_final": 0.5692490450925746
+    },
+    {
+      "evidence_id": "ev_healthcare_10_01210_discussion_p018_c0028",
+      "paper_title": "IMU-Based Monitoring for Assistive Diagnosis and Management of IoHT: A Review",
+      "page_start": 18,
+      "section": "discussion",
+      "score_final": 0.5342561872107154
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "claim_data_case_v3_1778492674417_skeleton_symmetry_001",
+      "claim_text": "左右步态对称指数为 0.91，对称性相对良好。",
+      "claim_type": "gait_observation",
+      "data_evidence_ids": [
+        "data_case_v3_1778492674417_skeleton_symmetry_001"
+      ],
+      "literature_evidence_ids": [
+        "ev_healthcare_10_01210_introduction_p002_c0003",
+        "ev_characterization_of_lower_limb_activity_during_gait_using_wearable_multi_channel_methods_p001_c0000"
+      ],
+      "risk_level": "medium",
+      "confidence": 0.75
+    },
+    {
+      "claim_id": "claim_data_case_v3_1778492674417_skeleton_cadence_001",
+      "claim_text": "患者步频为 71.6 步/分钟。",
+      "claim_type": "measurement",
+      "data_evidence_ids": [
+        "data_case_v3_1778492674417_skeleton_cadence_001"
+      ],
+      "literature_evidence_ids": [
+        "ev_healthcare_10_01210_introduction_p002_c0003",
+        "ev_characterization_of_lower_limb_activity_during_gait_using_wearable_multi_channel_methods_p001_c0000"
+      ],
+      "risk_level": "medium",
+      "confidence": 0.75
+    }
+  ],
+  "confidence_level": 0.75,
+  "overall_quality_score": 0.85,
+  "disclaimer": "本报告由 Agentic RAG 系统基于上传数据与本地文献证据自动生成，仅用于科研、教学或康复评估辅助，不构成医学诊断或治疗建议。请由具备资质的临床专业人员结合完整病史、体格检查和标准量表进行最终判断。"
+}
